@@ -1,0 +1,14 @@
+# EVM
+evm/out/
+evm/cache/
+evm/broadcast/**/dry-run/
+# SVM
+svm/target/
+svm/.anchor/
+# never commit keys
+**/*keypair*.json
+.env
+.env.*
+!.env.example
+node_modules/
+.DS_Store
