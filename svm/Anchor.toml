@@ -1,0 +1,21 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+realized_rate_oracle = "4NUdEu7crxzR1AtHhaiMLk4q1ctTvhZLREq7Pbt9KNkK"
+prediction_market = "2aMC2CKjqwxmLrS6dv98c6pVYEKogRXxEuz3NZpzv8CZ"
+spoke_gateway = "Gi1uEn2LbSm8xM9LXpyZ5ZSbiqhLsqQ7ntgM33pbT2Ki"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

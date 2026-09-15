@@ -1,0 +1,41 @@
+[package]
+name = "spoke-gateway"
+version = "0.1.0"
+description = "Created with Anchor"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "spoke_gateway"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = "1.1.2"
+
+[dev-dependencies]
+base64 = "0.22"
+serde_json = "1"
+solana-pubkey = "3.0.0"
+solana-instruction = "3.0.0"
+solana-account = "3.0.0"
+sha2 = "0.10"
+litesvm = "0.10.0"
+solana-message = "3.0.1"
+solana-transaction = "3.0.2"
+solana-signer = "3.0.0"
+solana-keypair = "3.0.1"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
