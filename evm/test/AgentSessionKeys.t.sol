@@ -105,4 +105,46 @@ contract AgentSessionKeysTest is Test {
         keys.execute(address(target), abi.encodeWithSelector(Pinged.ping.selector));
         assertEq(target.pings(), 1);
     }
+
+    /// Hardening: `execute` must never touch the metered token, even if the owner
+    /// mistakenly allowlists it — otherwise the agent could transferFrom(owner)
+    /// straight past the spend cap.
+    function test_Execute_CannotBypassCapViaTokenTarget() public {
+        _grant(1_000e18, uint64(block.timestamp + 1 days));
+        // Owner (mistakenly) allowlists the token itself.
+        vm.prank(owner);
+        keys.setAllowedTarget(agent, address(cNGN), true);
+
+        // Agent tries to drain the owner via the token's transferFrom — blocked.
+        bytes memory drain =
+            abi.encodeWithSelector(cNGN.transferFrom.selector, owner, agent, 1_000_000e18);
+        vm.prank(agent);
+        vm.expectRevert(AgentSessionKeys.TargetNotAllowed.selector);
+        keys.execute(address(cNGN), drain);
+        assertEq(cNGN.balanceOf(agent), 0);
+    }
+
+    /// Re-granting resets the spent counter to a fresh cap.
+    function test_Regrant_ResetsSpent() public {
+        _grant(50_000e18, uint64(block.timestamp + 1 days));
+        vm.prank(agent);
+        keys.pay(bob, 50_000e18);
+        assertEq(keys.remaining(agent), 0);
+
+        _grant(10_000e18, uint64(block.timestamp + 1 days));
+        assertEq(keys.remaining(agent), 10_000e18);
+        vm.prank(agent);
+        keys.pay(bob, 10_000e18);
+        assertEq(keys.remaining(agent), 0);
+    }
+
+    /// grantSession rejects a past expiry and a zero cap.
+    function test_Grant_RejectsBadParams() public {
+        vm.startPrank(owner);
+        vm.expectRevert(AgentSessionKeys.BadParam.selector);
+        keys.grantSession(agent, address(cNGN), 1e18, uint64(block.timestamp)); // expiry not in future
+        vm.expectRevert(AgentSessionKeys.BadParam.selector);
+        keys.grantSession(agent, address(cNGN), 0, uint64(block.timestamp + 1 days)); // zero cap
+        vm.stopPrank();
+    }
 }

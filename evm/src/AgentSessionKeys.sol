@@ -97,8 +97,13 @@ contract AgentSessionKeys is Ownable2Step, ReentrancyGuard {
     ///         The call executes from THIS contract's context; grant target
     ///         permissions narrowly.
     function execute(address target, bytes calldata data) external nonReentrant returns (bytes memory out) {
-        _live(msg.sender);
+        Session storage s = _live(msg.sender);
         if (!allowedTarget[msg.sender][target]) revert TargetNotAllowed();
+        // Defense-in-depth: `execute` must never call the metered token. This
+        // contract holds the owner's ERC-20 approval, so an allowlisted token
+        // target could `transferFrom(owner, …)` and bypass the spend cap. All
+        // token movement must go through `pay`, which meters against the cap.
+        if (target == s.token) revert TargetNotAllowed();
         bool ok;
         (ok, out) = target.call(data);
         if (!ok) revert CallFailed();
