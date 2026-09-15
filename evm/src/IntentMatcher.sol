@@ -8,7 +8,7 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {RealizedRateOracle} from "./RealizedRateOracle.sol";
 
-/// @title StableArc Intent Matcher
+/// @title Pesarc Intent Matcher
 /// @notice Local-currency-first settlement. Transfers enter as *intents* rather
 ///         than immediate swaps. When two opposing intents exist — a Ghanaian
 ///         sending to Nigeria and a Nigerian sending to Ghana — they settle

@@ -1,4 +1,4 @@
-//! StableArc Prediction & Hedge Market — Solana (SVM).
+//! Pesarc Prediction & Hedge Market — Solana (SVM).
 //!
 //! The SVM sibling of the EVM `PredictionMarket`: binary, **parimutuel**
 //! markets settled in a local-currency SPL stablecoin (cNGN / cKES, never

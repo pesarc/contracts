@@ -95,7 +95,7 @@ contract DeployPredictionMarket is Script {
 
         vm.stopBroadcast();
 
-        console2.log("== StableArc PredictionMarket on Celo ==");
+        console2.log("== Pesarc PredictionMarket on Celo ==");
         console2.log("PredictionMarket:", address(market));
         console2.log("cUSD (test):", address(cusd));
         console2.log("markets seeded:", market.marketCount());

@@ -1,7 +1,7 @@
 [package]
 name = "prediction-market"
 version = "0.1.0"
-description = "StableArc parimutuel FX/macro prediction & hedge market (SVM)"
+description = "Pesarc parimutuel FX/macro prediction & hedge market (SVM)"
 edition.workspace = true
 rust-version.workspace = true
 

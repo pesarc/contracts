@@ -1,8 +1,8 @@
-# StableArc · contracts
+# Pesarc · contracts
 
 All on-chain code, public: EVM (Foundry) + SVM (Anchor). Consumed by the private
-[`stablearc/app`](https://github.com/stablearc/app) monorepo via generated
-ABIs/IDLs in `@stablearc/abi`.
+[`pesarc/app`](https://github.com/pesarc/app) monorepo via generated
+ABIs/IDLs in `@pesarc/abi`.
 
 ```
 evm/      Foundry — IntentMatcher, RealizedRateOracle, PredictionMarket,

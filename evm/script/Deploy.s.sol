@@ -8,7 +8,7 @@ import {IntentMatcher} from "../src/IntentMatcher.sol";
 import {RealizedRateOracle} from "../src/RealizedRateOracle.sol";
 import {PredictionMarket} from "../src/PredictionMarket.sol";
 
-/// @notice Deploys the StableArc local-currency settlement stack for the Celo
+/// @notice Deploys the Pesarc local-currency settlement stack for the Celo
 ///         "Agents at Work" hackathon.
 ///
 /// The stack has zero chain-specific dependencies — no bridge, no AMM, no
@@ -49,7 +49,7 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        console2.log("== StableArc on Celo ==");
+        console2.log("== Pesarc on Celo ==");
         console2.log("RealizedRateOracle:", address(oracle));
         console2.log("IntentMatcher:", address(matcher));
         console2.log("cNGN:", address(cngn));
