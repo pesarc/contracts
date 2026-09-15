@@ -7,5 +7,5 @@ One Anchor workspace for every Solana program:
 
 Because they share a workspace, the prediction-market ↔ oracle CPI is local —
 no cross-repo `.so` path. `anchor build` produces `target/deploy/*.so` +
-`target/idl/*.json`; the IDLs are synced into `@stablearc/abi` in the app repo.
+`target/idl/*.json`; the IDLs are synced into `@pesarc/abi` in the app repo.
 Program keypairs stay git-ignored.

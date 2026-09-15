@@ -13,7 +13,7 @@ interface IRealizedRateOracle {
     function hasData(address tokenIn, address tokenOut) external view returns (bool);
 }
 
-/// @title StableArc Prediction & Hedge Market
+/// @title Pesarc Prediction & Hedge Market
 /// @notice Binary, **parimutuel** markets settled in a local-currency stablecoin
 ///         (the collateral is cNGN / cKES — not USDC — which is the whole edge:
 ///         the position, the payout, and the thing being hedged are all the same
@@ -21,7 +21,7 @@ interface IRealizedRateOracle {
 ///
 ///         Two ways a market resolves, pinned at creation and never changed:
 ///           - **Oracle** — FX/macro questions ("USD/NGN monthly close ≥ 1600?")
-///             resolve deterministically from StableArc's own
+///             resolve deterministically from Pesarc's own
 ///             {RealizedRateOracle} TWAP. This doubles as a *hedge*: it settles
 ///             the naira slide from the rail's own realized flow, no external
 ///             feed to deny or compel.

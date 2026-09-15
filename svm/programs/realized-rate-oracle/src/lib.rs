@@ -1,7 +1,7 @@
-//! StableArc Realized-Rate Oracle — Solana (SVM).
+//! Pesarc Realized-Rate Oracle — Solana (SVM).
 //!
 //! Self-referential price discovery: records the rate of every settlement that
-//! actually clears on StableArc's own rail and exposes a time-weighted average
+//! actually clears on Pesarc's own rail and exposes a time-weighted average
 //! per directional pair. The price comes from our own realized local-to-local
 //! flow, not a USD-referenced feed — no external provider can deny it, no
 //! jurisdiction can compel it, and moving it costs real capital.

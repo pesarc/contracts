@@ -1,4 +1,4 @@
-//! StableArc Spoke Gateway — Solana (Wave 3, Engineering Spec v0.3 §3.3)
+//! Pesarc Spoke Gateway — Solana (Wave 3, Engineering Spec v0.3 §3.3)
 //!
 //! The Solana entry point of the hub-and-spoke model: a user deposits native
 //! (Circle) USDC on Solana, the gateway burns it over CCTP V2 toward the
@@ -26,7 +26,7 @@ pub const SPL_TOKEN_PROGRAM: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9
 /// Circle USDC mint on Solana devnet — the only mint this corridor burns.
 pub const USDC_MINT: Pubkey = pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
-/// CCTP domain of the StableArc hub (Arbitrum).
+/// CCTP domain of the Pesarc hub (Arbitrum).
 pub const HUB_DOMAIN: u32 = 3;
 /// HubBridgeReceiver on Arbitrum Sepolia (0xe7155253eDc1337F24D778A66e4069faf3f7Fa1a).
 pub const HUB_RECEIVER_EVM: [u8; 20] = [

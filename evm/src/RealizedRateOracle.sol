@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 
-/// @title StableArc Realized-Rate Oracle
+/// @title Pesarc Realized-Rate Oracle
 /// @notice Self-referential price discovery. Records the rate of every
 ///         settlement that actually clears on our own rail and exposes a
 ///         time-weighted average per directional pair.
