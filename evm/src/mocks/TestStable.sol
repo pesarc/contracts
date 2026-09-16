@@ -10,7 +10,10 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 ///         On mainnet these are replaced by Celo's real native stables and the
 ///         agent code is unchanged.
 contract TestStable is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
+    constructor(
+        string memory name_,
+        string memory symbol_
+    ) ERC20(name_, symbol_) {}
 
     /// @notice Anyone can mint — testnet faucet behaviour, never for mainnet.
     function mint(address to, uint256 amount) external {

@@ -2,8 +2,17 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {AgentSessionKeys} from "../src/AgentSessionKeys.sol";
-import {TestStable} from "../src/TestStable.sol";
+import {AgentSessionKeys} from "../src/agent/AgentSessionKeys.sol";
+import {TestStable} from "../src/mocks/TestStable.sol";
+import {
+    NoSession,
+    Expired,
+    CapExceeded,
+    WrongToken,
+    TargetNotAllowed,
+    BadParam,
+    CallFailed
+} from "../src/errors/AgentSessionKeysErrors.sol";
 
 contract Pinged {
     uint256 public pings;
@@ -55,7 +64,7 @@ contract AgentSessionKeysTest is Test {
     function test_CapExceeded_Reverts() public {
         _grant(50_000e18, uint64(block.timestamp + 1 days));
         vm.prank(agent);
-        vm.expectRevert(AgentSessionKeys.CapExceeded.selector);
+        vm.expectRevert(CapExceeded.selector);
         keys.pay(bob, 50_000e18 + 1);
     }
 
@@ -63,7 +72,7 @@ contract AgentSessionKeysTest is Test {
         _grant(50_000e18, uint64(block.timestamp + 1 hours));
         vm.warp(block.timestamp + 2 hours);
         vm.prank(agent);
-        vm.expectRevert(AgentSessionKeys.Expired.selector);
+        vm.expectRevert(Expired.selector);
         keys.pay(bob, 1e18);
     }
 
@@ -72,7 +81,7 @@ contract AgentSessionKeysTest is Test {
         vm.prank(owner);
         keys.revokeSession(agent);
         vm.prank(agent);
-        vm.expectRevert(AgentSessionKeys.NoSession.selector);
+        vm.expectRevert(NoSession.selector);
         keys.pay(bob, 1e18);
         assertEq(keys.remaining(agent), 0);
     }
@@ -80,14 +89,19 @@ contract AgentSessionKeysTest is Test {
     function test_NonKey_CannotPay() public {
         _grant(50_000e18, uint64(block.timestamp + 1 days));
         vm.prank(bob); // bob has no session
-        vm.expectRevert(AgentSessionKeys.NoSession.selector);
+        vm.expectRevert(NoSession.selector);
         keys.pay(bob, 1e18);
     }
 
     function test_OnlyOwnerGrants() public {
         vm.prank(agent);
         vm.expectRevert(); // Ownable: not owner
-        keys.grantSession(agent, address(cNGN), 1e18, uint64(block.timestamp + 1 days));
+        keys.grantSession(
+            agent,
+            address(cNGN),
+            1e18,
+            uint64(block.timestamp + 1 days)
+        );
     }
 
     function test_Execute_AllowlistEnforced() public {
@@ -95,14 +109,20 @@ contract AgentSessionKeysTest is Test {
 
         // Not allowed yet → reverts.
         vm.prank(agent);
-        vm.expectRevert(AgentSessionKeys.TargetNotAllowed.selector);
-        keys.execute(address(target), abi.encodeWithSelector(Pinged.ping.selector));
+        vm.expectRevert(TargetNotAllowed.selector);
+        keys.execute(
+            address(target),
+            abi.encodeWithSelector(Pinged.ping.selector)
+        );
 
         // Owner allowlists the target → agent can call it.
         vm.prank(owner);
         keys.setAllowedTarget(agent, address(target), true);
         vm.prank(agent);
-        keys.execute(address(target), abi.encodeWithSelector(Pinged.ping.selector));
+        keys.execute(
+            address(target),
+            abi.encodeWithSelector(Pinged.ping.selector)
+        );
         assertEq(target.pings(), 1);
     }
 
@@ -116,10 +136,14 @@ contract AgentSessionKeysTest is Test {
         keys.setAllowedTarget(agent, address(cNGN), true);
 
         // Agent tries to drain the owner via the token's transferFrom — blocked.
-        bytes memory drain =
-            abi.encodeWithSelector(cNGN.transferFrom.selector, owner, agent, 1_000_000e18);
+        bytes memory drain = abi.encodeWithSelector(
+            cNGN.transferFrom.selector,
+            owner,
+            agent,
+            1_000_000e18
+        );
         vm.prank(agent);
-        vm.expectRevert(AgentSessionKeys.TargetNotAllowed.selector);
+        vm.expectRevert(TargetNotAllowed.selector);
         keys.execute(address(cNGN), drain);
         assertEq(cNGN.balanceOf(agent), 0);
     }
@@ -141,10 +165,15 @@ contract AgentSessionKeysTest is Test {
     /// grantSession rejects a past expiry and a zero cap.
     function test_Grant_RejectsBadParams() public {
         vm.startPrank(owner);
-        vm.expectRevert(AgentSessionKeys.BadParam.selector);
+        vm.expectRevert(BadParam.selector);
         keys.grantSession(agent, address(cNGN), 1e18, uint64(block.timestamp)); // expiry not in future
-        vm.expectRevert(AgentSessionKeys.BadParam.selector);
-        keys.grantSession(agent, address(cNGN), 0, uint64(block.timestamp + 1 days)); // zero cap
+        vm.expectRevert(BadParam.selector);
+        keys.grantSession(
+            agent,
+            address(cNGN),
+            0,
+            uint64(block.timestamp + 1 days)
+        ); // zero cap
         vm.stopPrank();
     }
 }

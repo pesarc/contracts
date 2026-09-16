@@ -3,8 +3,8 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 
-import {PredictionMarket} from "../src/PredictionMarket.sol";
-import {TestStable} from "../src/TestStable.sol";
+import {PredictionMarket} from "../src/prediction-market/PredictionMarket.sol";
+import {TestStable} from "../src/mocks/TestStable.sol";
 
 /// @notice Deploys ONLY the PredictionMarket against the already-deployed
 ///         RealizedRateOracle + cNGN, and seeds the three launch markets

@@ -2,16 +2,34 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    Ownable2Step
+} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {
+    ReentrancyGuard
+} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-/// @notice The slice of the RealizedRateOracle this market depends on.
-interface IRealizedRateOracle {
-    function consult(address tokenIn, address tokenOut, uint32 window) external view returns (uint256 twap1e18);
-    function hasData(address tokenIn, address tokenOut) external view returns (bool);
-}
+import {IRealizedRateOracle} from "../interfaces/IRealizedRateOracle.sol";
+import {
+    BadParam,
+    NotTrading,
+    TradingClosed,
+    TooEarly,
+    NotAttestor,
+    WrongSourceKind,
+    DisputesDisabled,
+    WindowClosed,
+    WindowOpen,
+    BadStatus,
+    NoOracleData,
+    AlreadyClaimed,
+    NothingToClaim,
+    NotInvalid
+} from "../errors/PredictionMarketErrors.sol";
 
 /// @title Pesarc Prediction & Hedge Market
 /// @notice Binary, **parimutuel** markets settled in a local-currency stablecoin
@@ -114,36 +132,44 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
 
     // ---------------------------------------------------------------- events
 
-    event MarketCreated(uint256 indexed id, address indexed collateral, SourceKind kind, string question);
-    event Staked(uint256 indexed id, address indexed user, bool isYes, uint256 amount);
-    event Proposed(uint256 indexed id, address indexed proposer, Outcome outcome, uint64 disputeUntil);
+    event MarketCreated(
+        uint256 indexed id,
+        address indexed collateral,
+        SourceKind kind,
+        string question
+    );
+    event Staked(
+        uint256 indexed id,
+        address indexed user,
+        bool isYes,
+        uint256 amount
+    );
+    event Proposed(
+        uint256 indexed id,
+        address indexed proposer,
+        Outcome outcome,
+        uint64 disputeUntil
+    );
     event Disputed(uint256 indexed id, address indexed disputer);
-    event Resolved(uint256 indexed id, Outcome outcome, uint256 winnerPool, uint256 payoutPool);
+    event Resolved(
+        uint256 indexed id,
+        Outcome outcome,
+        uint256 winnerPool,
+        uint256 payoutPool
+    );
     event Claimed(uint256 indexed id, address indexed user, uint256 amount);
     event Refunded(uint256 indexed id, address indexed user, uint256 amount);
     event FeeConfigured(address treasury, uint16 protocolFeeBps);
     event OracleSet(address oracle);
 
-    // ---------------------------------------------------------------- errors
-
-    error BadParam();
-    error NotTrading();
-    error TradingClosed();
-    error TooEarly();
-    error NotAttestor();
-    error WrongSourceKind();
-    error DisputesDisabled();
-    error WindowClosed();
-    error WindowOpen();
-    error BadStatus();
-    error NoOracleData();
-    error AlreadyClaimed();
-    error NothingToClaim();
-    error NotInvalid();
-
     // ----------------------------------------------------------- constructor
 
-    constructor(address _owner, address _oracle, address _treasury, uint16 _protocolFeeBps) Ownable(_owner) {
+    constructor(
+        address _owner,
+        address _oracle,
+        address _treasury,
+        uint16 _protocolFeeBps
+    ) Ownable(_owner) {
         if (_protocolFeeBps > MAX_FEE_BPS) revert BadParam();
         oracle = IRealizedRateOracle(_oracle);
         treasury = _treasury;
@@ -159,7 +185,10 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         emit OracleSet(_oracle);
     }
 
-    function setFeeConfig(address _treasury, uint16 _protocolFeeBps) external onlyOwner {
+    function setFeeConfig(
+        address _treasury,
+        uint16 _protocolFeeBps
+    ) external onlyOwner {
         if (_protocolFeeBps > MAX_FEE_BPS) revert BadParam();
         treasury = _treasury;
         protocolFeeBps = _protocolFeeBps;
@@ -179,15 +208,20 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         Source calldata source
     ) external onlyOwner returns (uint256 id) {
         if (collateral == address(0)) revert BadParam();
-        if (closeTime <= block.timestamp || resolveTime < closeTime) revert BadParam();
-        if (uint8(source.comparator) > uint8(Comparator.LessThan)) revert BadParam();
+        if (closeTime <= block.timestamp || resolveTime < closeTime)
+            revert BadParam();
+        if (uint8(source.comparator) > uint8(Comparator.LessThan))
+            revert BadParam();
 
         if (source.kind == SourceKind.Oracle) {
-            if (source.tokenIn == address(0) || source.tokenOut == address(0)) revert BadParam();
-            if (source.twapWindow == 0 || source.threshold == 0) revert BadParam();
+            if (source.tokenIn == address(0) || source.tokenOut == address(0))
+                revert BadParam();
+            if (source.twapWindow == 0 || source.threshold == 0)
+                revert BadParam();
         } else {
             // Attested: a bonded attestor is the whole trust model.
-            if (attestor == address(0) || bond == 0 || disputeWindow == 0) revert BadParam();
+            if (attestor == address(0) || bond == 0 || disputeWindow == 0)
+                revert BadParam();
         }
 
         id = marketCount++;
@@ -211,7 +245,11 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
 
     /// @notice Stake `amount` of the market's collateral on YES or NO. A user may
     ///         stake either side, or both; each side is tracked independently.
-    function stake(uint256 id, bool isYes, uint128 amount) external nonReentrant {
+    function stake(
+        uint256 id,
+        bool isYes,
+        uint128 amount
+    ) external nonReentrant {
         Market storage m = _markets[id];
         if (m.collateral == address(0)) revert BadParam();
         if (m.status != Status.Trading) revert NotTrading();
@@ -226,7 +264,11 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
             stakeNo[id][msg.sender] += amount;
         }
 
-        IERC20(m.collateral).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(m.collateral).safeTransferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
         emit Staked(id, msg.sender, isYes, amount);
     }
 
@@ -239,9 +281,14 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         if (m.status != Status.Trading) revert NotTrading();
         if (m.source.kind != SourceKind.Oracle) revert WrongSourceKind();
         if (block.timestamp < m.resolveTime) revert TooEarly();
-        if (!oracle.hasData(m.source.tokenIn, m.source.tokenOut)) revert NoOracleData();
+        if (!oracle.hasData(m.source.tokenIn, m.source.tokenOut))
+            revert NoOracleData();
 
-        uint256 rate = oracle.consult(m.source.tokenIn, m.source.tokenOut, m.source.twapWindow);
+        uint256 rate = oracle.consult(
+            m.source.tokenIn,
+            m.source.tokenOut,
+            m.source.twapWindow
+        );
         Outcome o = _compare(rate, m.source.threshold, m.source.comparator);
         _recordProposal(id, m, o, address(0));
     }
@@ -254,12 +301,20 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         if (m.source.kind != SourceKind.Attested) revert WrongSourceKind();
         if (msg.sender != m.attestor) revert NotAttestor();
         if (block.timestamp < m.resolveTime) revert TooEarly();
-        if (outcome_ != Outcome.Yes && outcome_ != Outcome.No && outcome_ != Outcome.Invalid) {
+        if (
+            outcome_ != Outcome.Yes &&
+            outcome_ != Outcome.No &&
+            outcome_ != Outcome.Invalid
+        ) {
             revert BadParam();
         }
 
         m.proposer = msg.sender;
-        IERC20(m.collateral).safeTransferFrom(msg.sender, address(this), m.bond);
+        IERC20(m.collateral).safeTransferFrom(
+            msg.sender,
+            address(this),
+            m.bond
+        );
         _recordProposal(id, m, outcome_, msg.sender);
     }
 
@@ -273,7 +328,11 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
 
         m.disputer = msg.sender;
         m.status = Status.Disputed;
-        IERC20(m.collateral).safeTransferFrom(msg.sender, address(this), m.bond);
+        IERC20(m.collateral).safeTransferFrom(
+            msg.sender,
+            address(this),
+            m.bond
+        );
         emit Disputed(id, msg.sender);
     }
 
@@ -298,10 +357,17 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
 
     /// @notice Arbiter ruling on a disputed market. Settles the outcome and the
     ///         two bonds: the party who was right takes both, the wrong one forfeits.
-    function resolveDispute(uint256 id, Outcome finalOutcome) external onlyOwner nonReentrant {
+    function resolveDispute(
+        uint256 id,
+        Outcome finalOutcome
+    ) external onlyOwner nonReentrant {
         Market storage m = _markets[id];
         if (m.status != Status.Disputed) revert BadStatus();
-        if (finalOutcome != Outcome.Yes && finalOutcome != Outcome.No && finalOutcome != Outcome.Invalid) {
+        if (
+            finalOutcome != Outcome.Yes &&
+            finalOutcome != Outcome.No &&
+            finalOutcome != Outcome.Invalid
+        ) {
             revert BadParam();
         }
 
@@ -323,7 +389,8 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
             // Oracle: only the disputer's bond in escrow.
             if (proposerRight) {
                 // Oracle upheld — disputer forfeits to the treasury.
-                if (treasury != address(0)) IERC20(collateral).safeTransfer(treasury, bond);
+                if (treasury != address(0))
+                    IERC20(collateral).safeTransfer(treasury, bond);
             } else {
                 // Oracle overturned — disputer refunded.
                 IERC20(collateral).safeTransfer(disputer, bond);
@@ -337,10 +404,13 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
     function claim(uint256 id) external nonReentrant {
         Market storage m = _markets[id];
         if (m.status != Status.Finalized) revert BadStatus();
-        if (m.outcome != Outcome.Yes && m.outcome != Outcome.No) revert NotInvalid();
+        if (m.outcome != Outcome.Yes && m.outcome != Outcome.No)
+            revert NotInvalid();
         if (claimed[id][msg.sender]) revert AlreadyClaimed();
 
-        uint256 s = m.outcome == Outcome.Yes ? stakeYes[id][msg.sender] : stakeNo[id][msg.sender];
+        uint256 s = m.outcome == Outcome.Yes
+            ? stakeYes[id][msg.sender]
+            : stakeNo[id][msg.sender];
         if (s == 0) revert NothingToClaim();
 
         claimed[id][msg.sender] = true;
@@ -382,14 +452,23 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
 
     // ------------------------------------------------------------- internal
 
-    function _compare(uint256 value, uint256 threshold, Comparator c) internal pure returns (Outcome) {
+    function _compare(
+        uint256 value,
+        uint256 threshold,
+        Comparator c
+    ) internal pure returns (Outcome) {
         if (c == Comparator.GreaterOrEqual) {
             return value >= threshold ? Outcome.Yes : Outcome.No;
         }
         return value < threshold ? Outcome.Yes : Outcome.No;
     }
 
-    function _recordProposal(uint256 id, Market storage m, Outcome o, address proposer) internal {
+    function _recordProposal(
+        uint256 id,
+        Market storage m,
+        Outcome o,
+        address proposer
+    ) internal {
         m.proposed = o;
         m.status = Status.Proposed;
         uint64 until = uint64(block.timestamp) + m.disputeWindow;

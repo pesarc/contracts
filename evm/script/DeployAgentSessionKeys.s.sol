@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
-import {AgentSessionKeys} from "../src/AgentSessionKeys.sol";
+import {AgentSessionKeys} from "../src/agent/AgentSessionKeys.sol";
 
 /// @notice Deploys AgentSessionKeys and (optionally) grants the deployer a demo
 ///         session so the app's "Agent budget" reads a live cap. Chain-agnostic.
