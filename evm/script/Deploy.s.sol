@@ -3,8 +3,8 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 
-import {TestStable} from "../src/mocks/TestStable.sol";
-import {IntentMatcher} from "../src/liquidity/IntentMatcher.sol";
+import {TestStable} from "../src/tokens/TestStable.sol";
+import {IntentMatcher} from "../src/settlement/IntentMatcher.sol";
 import {RealizedRateOracle} from "../src/oracle/RealizedRateOracle.sol";
 import {PredictionMarket} from "../src/prediction-market/PredictionMarket.sol";
 

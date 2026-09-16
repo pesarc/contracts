@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {AgentSessionKeys} from "../src/agent/AgentSessionKeys.sol";
-import {TestStable} from "../src/mocks/TestStable.sol";
+import {TestStable} from "../src/tokens/TestStable.sol";
 import {
     NoSession,
     Expired,
