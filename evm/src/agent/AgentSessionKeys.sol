@@ -2,16 +2,10 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {
-    Ownable2Step
-} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {
-    ReentrancyGuard
-} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {
     NoSession,
     Expired,
@@ -53,51 +47,21 @@ contract AgentSessionKeys is Ownable2Step, ReentrancyGuard {
     /// @notice agent key => target contract => allowed to `execute` against it.
     mapping(address => mapping(address => bool)) public allowedTarget;
 
-    event SessionGranted(
-        address indexed key,
-        address token,
-        uint128 cap,
-        uint64 expiry
-    );
+    event SessionGranted(address indexed key, address token, uint128 cap, uint64 expiry);
     event SessionRevoked(address indexed key);
-    event TargetAllowed(
-        address indexed key,
-        address indexed target,
-        bool allowed
-    );
-    event AgentSpent(
-        address indexed key,
-        address indexed to,
-        uint256 amount,
-        uint128 remaining
-    );
-    event AgentExecuted(
-        address indexed key,
-        address indexed target,
-        bytes4 selector
-    );
-
+    event TargetAllowed(address indexed key, address indexed target, bool allowed);
+    event AgentSpent(address indexed key, address indexed to, uint256 amount, uint128 remaining);
+    event AgentExecuted(address indexed key, address indexed target, bytes4 selector);
 
     constructor(address _owner) Ownable(_owner) {}
 
     // ------------------------------------------------------------- admin (owner)
 
     /// @notice Grant or re-grant a session key with a fresh cap + expiry.
-    function grantSession(
-        address key,
-        address token,
-        uint128 cap,
-        uint64 expiry
-    ) external onlyOwner {
+    function grantSession(address key, address token, uint128 cap, uint64 expiry) external onlyOwner {
         if (key == address(0) || token == address(0)) revert BadParam();
         if (expiry <= block.timestamp || cap == 0) revert BadParam();
-        sessions[key] = Session({
-            token: token,
-            cap: cap,
-            spent: 0,
-            expiry: expiry,
-            active: true
-        });
+        sessions[key] = Session({token: token, cap: cap, spent: 0, expiry: expiry, active: true});
         emit SessionGranted(key, token, cap, expiry);
     }
 
@@ -108,11 +72,7 @@ contract AgentSessionKeys is Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Allow/disallow a session key to `execute` against a target contract.
-    function setAllowedTarget(
-        address key,
-        address target,
-        bool ok
-    ) external onlyOwner {
+    function setAllowedTarget(address key, address target, bool ok) external onlyOwner {
         allowedTarget[key][target] = ok;
         emit TargetAllowed(key, target, ok);
     }
@@ -137,10 +97,7 @@ contract AgentSessionKeys is Ownable2Step, ReentrancyGuard {
     ///         moved by this path — for resolve/quote/hedge-open style actions).
     ///         The call executes from THIS contract's context; grant target
     ///         permissions narrowly.
-    function execute(
-        address target,
-        bytes calldata data
-    ) external nonReentrant returns (bytes memory out) {
+    function execute(address target, bytes calldata data) external nonReentrant returns (bytes memory out) {
         Session storage s = _live(msg.sender);
         if (!allowedTarget[msg.sender][target]) revert TargetNotAllowed();
         // Defense-in-depth: `execute` must never call the metered token. This

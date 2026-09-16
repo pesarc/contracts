@@ -26,11 +26,7 @@ contract MockOracle is IRealizedRateOracle {
         present[k] = true;
     }
 
-    function consult(
-        address a,
-        address b,
-        uint32
-    ) external view returns (uint256) {
+    function consult(address a, address b, uint32) external view returns (uint256) {
         return rate[keccak256(abi.encodePacked(a, b))];
     }
 
@@ -74,10 +70,7 @@ contract PredictionMarketTest is Test {
 
     // ---------------------------------------------------------------- helpers
 
-    function _oracleMarket(
-        uint256 threshold,
-        PredictionMarket.Comparator cmp
-    ) internal returns (uint256 id) {
+    function _oracleMarket(uint256 threshold, PredictionMarket.Comparator cmp) internal returns (uint256 id) {
         PredictionMarket.Source memory s = PredictionMarket.Source({
             kind: PredictionMarket.SourceKind.Oracle,
             tokenIn: address(usd),
@@ -126,10 +119,7 @@ contract PredictionMarketTest is Test {
     // ---------------------------------------------------------------- tests
 
     function test_OracleResolveYes_ParimutuelPayoutWithFee() public {
-        uint256 id = _oracleMarket(
-            1600e18,
-            PredictionMarket.Comparator.GreaterOrEqual
-        );
+        uint256 id = _oracleMarket(1600e18, PredictionMarket.Comparator.GreaterOrEqual);
 
         // Alice + Bob back YES (300k total), Carol backs NO (100k).
         vm.prank(alice);
@@ -157,18 +147,12 @@ contract PredictionMarketTest is Test {
         vm.prank(alice);
         pm.claim(id);
         // Alice had 2/3 of the YES pool → 398k * 2/3 = 265,333.33e18
-        assertEq(
-            cNGN.balanceOf(alice) - aliceBefore,
-            (uint256(398_000e18) * 200_000e18) / 300_000e18
-        );
+        assertEq(cNGN.balanceOf(alice) - aliceBefore, (uint256(398_000e18) * 200_000e18) / 300_000e18);
 
         uint256 bobBefore = cNGN.balanceOf(bob);
         vm.prank(bob);
         pm.claim(id);
-        assertEq(
-            cNGN.balanceOf(bob) - bobBefore,
-            (uint256(398_000e18) * 100_000e18) / 300_000e18
-        );
+        assertEq(cNGN.balanceOf(bob) - bobBefore, (uint256(398_000e18) * 100_000e18) / 300_000e18);
 
         // Loser cannot claim; winner cannot double-claim.
         vm.prank(carol);
@@ -181,10 +165,7 @@ contract PredictionMarketTest is Test {
 
     function test_OracleResolveNo_WithLessThanComparator() public {
         // "Inflation stays under 20%" style: YES iff value < threshold.
-        uint256 id = _oracleMarket(
-            1600e18,
-            PredictionMarket.Comparator.LessThan
-        );
+        uint256 id = _oracleMarket(1600e18, PredictionMarket.Comparator.LessThan);
         vm.prank(alice);
         pm.stake(id, true, 50_000e18);
         vm.prank(bob);
@@ -200,10 +181,7 @@ contract PredictionMarketTest is Test {
     }
 
     function test_EmptyWinningSide_VoidsToRefund() public {
-        uint256 id = _oracleMarket(
-            1600e18,
-            PredictionMarket.Comparator.GreaterOrEqual
-        );
+        uint256 id = _oracleMarket(1600e18, PredictionMarket.Comparator.GreaterOrEqual);
         // Everyone on NO, but YES wins → nobody to pay → void.
         vm.prank(alice);
         pm.stake(id, false, 100_000e18);
@@ -281,10 +259,7 @@ contract PredictionMarketTest is Test {
     }
 
     function test_Reverts_StakeAfterClose_And_ProposeTooEarly() public {
-        uint256 id = _oracleMarket(
-            1600e18,
-            PredictionMarket.Comparator.GreaterOrEqual
-        );
+        uint256 id = _oracleMarket(1600e18, PredictionMarket.Comparator.GreaterOrEqual);
 
         oracle.set(address(usd), address(cNGN), 1700e18);
         // Too early to propose.
@@ -299,10 +274,7 @@ contract PredictionMarketTest is Test {
     }
 
     function test_ImpliedYesPrice_TracksPools() public {
-        uint256 id = _oracleMarket(
-            1600e18,
-            PredictionMarket.Comparator.GreaterOrEqual
-        );
+        uint256 id = _oracleMarket(1600e18, PredictionMarket.Comparator.GreaterOrEqual);
         assertEq(pm.impliedYes1e18(id), 0.5e18); // no stake yet
 
         vm.prank(alice);
@@ -318,14 +290,7 @@ contract PredictionMarketTest is Test {
         vm.prank(alice);
         vm.expectRevert(); // Ownable: not owner
         pm.createMarket(
-            "x",
-            address(cNGN),
-            uint64(block.timestamp + 1),
-            uint64(block.timestamp + 1),
-            1 days,
-            attestor,
-            1e18,
-            s
+            "x", address(cNGN), uint64(block.timestamp + 1), uint64(block.timestamp + 1), 1 days, attestor, 1e18, s
         );
 
         vm.prank(owner);

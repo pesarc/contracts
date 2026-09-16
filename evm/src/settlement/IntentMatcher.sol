@@ -2,16 +2,10 @@
 pragma solidity ^0.8.26;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {
-    Ownable2Step
-} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    ReentrancyGuard
-} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {RealizedRateOracle} from "../oracle/RealizedRateOracle.sol";
 import {
     BadAmount,
@@ -138,11 +132,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     ) external nonReentrant returns (uint256 id) {
         if (amountIn == 0 || minAmountOut == 0) revert BadAmount();
         if (recipient == address(0)) revert BadRecipient();
-        if (
-            tokenIn == tokenOut ||
-            tokenIn == address(0) ||
-            tokenOut == address(0)
-        ) {
+        if (tokenIn == tokenOut || tokenIn == address(0) || tokenOut == address(0)) {
             revert BadToken();
         }
         if (expiry <= block.timestamp) revert IntentExpired();
@@ -162,16 +152,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
             active: true
         });
 
-        emit IntentSubmitted(
-            id,
-            msg.sender,
-            tokenIn,
-            tokenOut,
-            amountIn,
-            minAmountOut,
-            expiry,
-            reference_
-        );
+        emit IntentSubmitted(id, msg.sender, tokenIn, tokenOut, amountIn, minAmountOut, expiry, reference_);
     }
 
     /// @notice Refunds the unfilled remainder. The maker may cancel any time;
@@ -179,8 +160,9 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     function cancelIntent(uint256 id) external nonReentrant {
         Intent storage i = intents[id];
         if (!i.active) revert IntentInactive();
-        if (msg.sender != i.maker && block.timestamp <= i.expiry)
+        if (msg.sender != i.maker && block.timestamp <= i.expiry) {
             revert NotMaker();
+        }
 
         uint128 refund = i.remainingIn;
         i.active = false;
@@ -199,12 +181,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     ///      the contract enforces that BOTH makers' limit rates are satisfied,
     ///      so any rate inside the overlap is acceptable and no maker can be
     ///      settled worse than they asked for.
-    function matchIntents(
-        uint256 idA,
-        uint256 idB,
-        uint128 fillA,
-        uint128 fillB
-    ) external onlySolver nonReentrant {
+    function matchIntents(uint256 idA, uint256 idB, uint128 fillA, uint128 fillB) external onlySolver nonReentrant {
         uint256[] memory ids = new uint256[](2);
         uint128[] memory fills = new uint128[](2);
         (ids[0], ids[1]) = (idA, idB);
@@ -213,15 +190,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
 
         Intent storage a = intents[idA];
         Intent storage b = intents[idB];
-        emit IntentsMatched(
-            idA,
-            idB,
-            a.tokenIn,
-            b.tokenIn,
-            fillA,
-            fillB,
-            (uint256(fillB) * 1e18) / fillA
-        );
+        emit IntentsMatched(idA, idB, a.tokenIn, b.tokenIn, fillA, fillB, (uint256(fillB) * 1e18) / fillA);
     }
 
     /// @notice Settles a **closed cycle** of intents with no external liquidity:
@@ -233,19 +202,13 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     /// @param fills How much of its own tokenIn each intent gives up. Intent `i`
     ///        receives `fills[i+1]` (the next intent's escrow, which is exactly
     ///        the token `i` asked for).
-    function matchRing(
-        uint256[] calldata ids,
-        uint128[] calldata fills
-    ) external onlySolver nonReentrant {
+    function matchRing(uint256[] calldata ids, uint128[] calldata fills) external onlySolver nonReentrant {
         _settleRing(ids, fills);
         emit RingMatched(ids, fills);
     }
 
     /// @dev The one settlement path. A 2-party match is just a ring of length 2.
-    function _settleRing(
-        uint256[] memory ids,
-        uint128[] memory fills
-    ) internal {
+    function _settleRing(uint256[] memory ids, uint128[] memory fills) internal {
         uint256 n = ids.length;
         if (n < 2 || n > MAX_RING || fills.length != n) revert BadRing();
 
@@ -273,10 +236,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
         // Pass 2 — every maker's own limit, pro rata to what they give.
         for (uint256 i = 0; i < n; i++) {
             Intent storage cur = intents[ids[i]];
-            if (
-                uint256(fills[(i + 1) % n]) * cur.amountIn <
-                uint256(cur.minAmountOut) * fills[i]
-            ) {
+            if (uint256(fills[(i + 1) % n]) * cur.amountIn < uint256(cur.minAmountOut) * fills[i]) {
                 revert LimitNotMet();
             }
         }
@@ -303,10 +263,7 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     /// @dev Publishes each leg's realized rate (both directions) to the
     ///      self-referential oracle. Best-effort: pricing must never block a
     ///      payment, so a missing/failing oracle is ignored.
-    function _recordPrints(
-        uint256[] memory ids,
-        uint128[] memory fills
-    ) internal {
+    function _recordPrints(uint256[] memory ids, uint128[] memory fills) internal {
         RealizedRateOracle oracle = rateOracle;
         if (address(oracle) == address(0)) return;
 
@@ -317,20 +274,8 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
             uint128 got = fills[(i + 1) % n];
             if (gave == 0 || got == 0) continue;
 
-            try
-                oracle.record(
-                    cur.tokenIn,
-                    cur.tokenOut,
-                    (uint256(got) * 1e18) / gave
-                )
-            {} catch {}
-            try
-                oracle.record(
-                    cur.tokenOut,
-                    cur.tokenIn,
-                    (uint256(gave) * 1e18) / got
-                )
-            {} catch {}
+            try oracle.record(cur.tokenIn, cur.tokenOut, (uint256(got) * 1e18) / gave) {} catch {}
+            try oracle.record(cur.tokenOut, cur.tokenIn, (uint256(gave) * 1e18) / got) {} catch {}
         }
     }
 
@@ -338,21 +283,17 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
 
     /// @notice True when the two intents are opposing, live, and their limit
     ///         rates overlap — i.e. a match exists at some rate.
-    function isMatchable(
-        uint256 idA,
-        uint256 idB
-    ) external view returns (bool) {
+    function isMatchable(uint256 idA, uint256 idB) external view returns (bool) {
         Intent memory a = intents[idA];
         Intent memory b = intents[idB];
         if (!a.active || !b.active) return false;
-        if (block.timestamp > a.expiry || block.timestamp > b.expiry)
+        if (block.timestamp > a.expiry || block.timestamp > b.expiry) {
             return false;
+        }
         if (a.tokenIn != b.tokenOut || a.tokenOut != b.tokenIn) return false;
         // A's floor: out/in >= minA/amtA. B's ceiling (in A's terms): the most
         // A can receive per unit given is amtB/minB. Overlap iff floor <= ceiling.
-        return
-            uint256(a.minAmountOut) * b.minAmountOut <=
-            uint256(a.amountIn) * b.amountIn;
+        return uint256(a.minAmountOut) * b.minAmountOut <= uint256(a.amountIn) * b.amountIn;
     }
 
     /// @notice The maker's limit rate (tokenOut per tokenIn, 1e18-scaled).

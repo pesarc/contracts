@@ -96,12 +96,7 @@ contract AgentSessionKeysTest is Test {
     function test_OnlyOwnerGrants() public {
         vm.prank(agent);
         vm.expectRevert(); // Ownable: not owner
-        keys.grantSession(
-            agent,
-            address(cNGN),
-            1e18,
-            uint64(block.timestamp + 1 days)
-        );
+        keys.grantSession(agent, address(cNGN), 1e18, uint64(block.timestamp + 1 days));
     }
 
     function test_Execute_AllowlistEnforced() public {
@@ -110,19 +105,13 @@ contract AgentSessionKeysTest is Test {
         // Not allowed yet → reverts.
         vm.prank(agent);
         vm.expectRevert(TargetNotAllowed.selector);
-        keys.execute(
-            address(target),
-            abi.encodeWithSelector(Pinged.ping.selector)
-        );
+        keys.execute(address(target), abi.encodeWithSelector(Pinged.ping.selector));
 
         // Owner allowlists the target → agent can call it.
         vm.prank(owner);
         keys.setAllowedTarget(agent, address(target), true);
         vm.prank(agent);
-        keys.execute(
-            address(target),
-            abi.encodeWithSelector(Pinged.ping.selector)
-        );
+        keys.execute(address(target), abi.encodeWithSelector(Pinged.ping.selector));
         assertEq(target.pings(), 1);
     }
 
@@ -136,12 +125,7 @@ contract AgentSessionKeysTest is Test {
         keys.setAllowedTarget(agent, address(cNGN), true);
 
         // Agent tries to drain the owner via the token's transferFrom — blocked.
-        bytes memory drain = abi.encodeWithSelector(
-            cNGN.transferFrom.selector,
-            owner,
-            agent,
-            1_000_000e18
-        );
+        bytes memory drain = abi.encodeWithSelector(cNGN.transferFrom.selector, owner, agent, 1_000_000e18);
         vm.prank(agent);
         vm.expectRevert(TargetNotAllowed.selector);
         keys.execute(address(cNGN), drain);
@@ -168,12 +152,7 @@ contract AgentSessionKeysTest is Test {
         vm.expectRevert(BadParam.selector);
         keys.grantSession(agent, address(cNGN), 1e18, uint64(block.timestamp)); // expiry not in future
         vm.expectRevert(BadParam.selector);
-        keys.grantSession(
-            agent,
-            address(cNGN),
-            0,
-            uint64(block.timestamp + 1 days)
-        ); // zero cap
+        keys.grantSession(agent, address(cNGN), 0, uint64(block.timestamp + 1 days)); // zero cap
         vm.stopPrank();
     }
 }
