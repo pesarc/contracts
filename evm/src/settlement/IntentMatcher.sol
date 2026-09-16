@@ -6,7 +6,22 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import {RealizedRateOracle} from "./RealizedRateOracle.sol";
+import {RealizedRateOracle} from "../oracle/RealizedRateOracle.sol";
+import {
+    BadAmount,
+    BadRecipient,
+    BadToken,
+    NotMaker,
+    NotSolver,
+    IntentInactive,
+    IntentExpired,
+    NotExpired,
+    NotOpposing,
+    LimitNotMet,
+    FillTooLarge,
+    BadRing,
+    DuplicateIntent
+} from "../errors/IntentMatcherErrors.sol";
 
 /// @title Pesarc Intent Matcher
 /// @notice Local-currency-first settlement. Transfers enter as *intents* rather
@@ -25,20 +40,6 @@ import {RealizedRateOracle} from "./RealizedRateOracle.sol";
 ///         than the maker's own limit.
 contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
-
-    error BadAmount();
-    error BadRecipient();
-    error BadToken();
-    error NotMaker();
-    error NotSolver();
-    error IntentInactive();
-    error IntentExpired();
-    error NotExpired();
-    error NotOpposing();
-    error LimitNotMet();
-    error FillTooLarge();
-    error BadRing();
-    error DuplicateIntent();
 
     /// @notice A maker's request: "swap `amountIn` of tokenIn for at least the
     ///         limit rate of tokenOut, delivered to `recipient`, before expiry".
@@ -159,7 +160,9 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
     function cancelIntent(uint256 id) external nonReentrant {
         Intent storage i = intents[id];
         if (!i.active) revert IntentInactive();
-        if (msg.sender != i.maker && block.timestamp <= i.expiry) revert NotMaker();
+        if (msg.sender != i.maker && block.timestamp <= i.expiry) {
+            revert NotMaker();
+        }
 
         uint128 refund = i.remainingIn;
         i.active = false;
@@ -284,7 +287,9 @@ contract IntentMatcher is Ownable2Step, ReentrancyGuard {
         Intent memory a = intents[idA];
         Intent memory b = intents[idB];
         if (!a.active || !b.active) return false;
-        if (block.timestamp > a.expiry || block.timestamp > b.expiry) return false;
+        if (block.timestamp > a.expiry || block.timestamp > b.expiry) {
+            return false;
+        }
         if (a.tokenIn != b.tokenOut || a.tokenOut != b.tokenIn) return false;
         // A's floor: out/in >= minA/amtA. B's ceiling (in A's terms): the most
         // A can receive per unit given is amtB/minB. Overlap iff floor <= ceiling.

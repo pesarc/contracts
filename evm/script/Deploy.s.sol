@@ -3,10 +3,10 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Script.sol";
 
-import {TestStable} from "../src/TestStable.sol";
-import {IntentMatcher} from "../src/IntentMatcher.sol";
-import {RealizedRateOracle} from "../src/RealizedRateOracle.sol";
-import {PredictionMarket} from "../src/PredictionMarket.sol";
+import {TestStable} from "../src/tokens/TestStable.sol";
+import {IntentMatcher} from "../src/settlement/IntentMatcher.sol";
+import {RealizedRateOracle} from "../src/oracle/RealizedRateOracle.sol";
+import {PredictionMarket} from "../src/prediction-market/PredictionMarket.sol";
 
 /// @notice Deploys the Pesarc local-currency settlement stack for the Celo
 ///         "Agents at Work" hackathon.

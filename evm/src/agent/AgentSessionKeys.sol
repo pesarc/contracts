@@ -6,6 +6,15 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {
+    NoSession,
+    Expired,
+    CapExceeded,
+    WrongToken,
+    TargetNotAllowed,
+    BadParam,
+    CallFailed
+} from "../errors/AgentSessionKeysErrors.sol";
 
 /// @title Pesarc Agent Session Keys
 /// @notice Bounded authority for an AI agent. The owner (a user's smart wallet)
@@ -43,14 +52,6 @@ contract AgentSessionKeys is Ownable2Step, ReentrancyGuard {
     event TargetAllowed(address indexed key, address indexed target, bool allowed);
     event AgentSpent(address indexed key, address indexed to, uint256 amount, uint128 remaining);
     event AgentExecuted(address indexed key, address indexed target, bytes4 selector);
-
-    error NoSession();
-    error Expired();
-    error CapExceeded();
-    error WrongToken();
-    error TargetNotAllowed();
-    error BadParam();
-    error CallFailed();
 
     constructor(address _owner) Ownable(_owner) {}
 

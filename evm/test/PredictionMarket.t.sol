@@ -2,9 +2,17 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {PredictionMarket} from "../src/PredictionMarket.sol";
-import {IRealizedRateOracle} from "../src/PredictionMarket.sol";
-import {TestStable} from "../src/TestStable.sol";
+import {PredictionMarket} from "../src/prediction-market/PredictionMarket.sol";
+import {IRealizedRateOracle} from "../src/interfaces/IRealizedRateOracle.sol";
+import {TestStable} from "../src/tokens/TestStable.sol";
+import {
+    BadParam,
+    TradingClosed,
+    TooEarly,
+    WindowOpen,
+    AlreadyClaimed,
+    NothingToClaim
+} from "../src/errors/PredictionMarketErrors.sol";
 
 /// @dev Deterministic oracle stand-in so tests pin the realized rate directly.
 ///      The real RealizedRateOracle is covered by its own suite.
@@ -139,19 +147,19 @@ contract PredictionMarketTest is Test {
         vm.prank(alice);
         pm.claim(id);
         // Alice had 2/3 of the YES pool → 398k * 2/3 = 265,333.33e18
-        assertEq(cNGN.balanceOf(alice) - aliceBefore, uint256(398_000e18) * 200_000e18 / 300_000e18);
+        assertEq(cNGN.balanceOf(alice) - aliceBefore, (uint256(398_000e18) * 200_000e18) / 300_000e18);
 
         uint256 bobBefore = cNGN.balanceOf(bob);
         vm.prank(bob);
         pm.claim(id);
-        assertEq(cNGN.balanceOf(bob) - bobBefore, uint256(398_000e18) * 100_000e18 / 300_000e18);
+        assertEq(cNGN.balanceOf(bob) - bobBefore, (uint256(398_000e18) * 100_000e18) / 300_000e18);
 
         // Loser cannot claim; winner cannot double-claim.
         vm.prank(carol);
-        vm.expectRevert(PredictionMarket.NothingToClaim.selector);
+        vm.expectRevert(NothingToClaim.selector);
         pm.claim(id);
         vm.prank(alice);
-        vm.expectRevert(PredictionMarket.AlreadyClaimed.selector);
+        vm.expectRevert(AlreadyClaimed.selector);
         pm.claim(id);
     }
 
@@ -206,7 +214,7 @@ contract PredictionMarketTest is Test {
         pm.propose(id, PredictionMarket.Outcome.Yes); // posts 5k bond
 
         // Can't finalize while the window is open.
-        vm.expectRevert(PredictionMarket.WindowOpen.selector);
+        vm.expectRevert(WindowOpen.selector);
         pm.finalize(id);
 
         vm.warp(block.timestamp + 2 days);
@@ -255,13 +263,13 @@ contract PredictionMarketTest is Test {
 
         oracle.set(address(usd), address(cNGN), 1700e18);
         // Too early to propose.
-        vm.expectRevert(PredictionMarket.TooEarly.selector);
+        vm.expectRevert(TooEarly.selector);
         pm.proposeFromOracle(id);
 
         // Stake closes at closeTime.
         vm.warp(block.timestamp + 7 days);
         vm.prank(alice);
-        vm.expectRevert(PredictionMarket.TradingClosed.selector);
+        vm.expectRevert(TradingClosed.selector);
         pm.stake(id, true, 1e18);
     }
 
@@ -286,7 +294,7 @@ contract PredictionMarketTest is Test {
         );
 
         vm.prank(owner);
-        vm.expectRevert(PredictionMarket.BadParam.selector);
+        vm.expectRevert(BadParam.selector);
         pm.setFeeConfig(treasury, 1001); // > MAX_FEE_BPS
     }
 }

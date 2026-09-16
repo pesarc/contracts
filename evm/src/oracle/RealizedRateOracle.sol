@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {NotRecorder, BadRate, NoData} from "../errors/RealizedRateOracleErrors.sol";
 
 /// @title Pesarc Realized-Rate Oracle
 /// @notice Self-referential price discovery. Records the rate of every
@@ -19,10 +20,6 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 ///         directions, so `consult` is accurate either way (TWAP of an inverse
 ///         is not the inverse of a TWAP).
 contract RealizedRateOracle is Ownable2Step {
-    error NotRecorder();
-    error BadRate();
-    error NoData();
-
     event RateRecorded(address indexed tokenIn, address indexed tokenOut, uint256 rate1e18, uint64 timestamp);
     event RecorderSet(address indexed recorder, bool allowed);
 

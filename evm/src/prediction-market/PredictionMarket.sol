@@ -7,11 +7,23 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-/// @notice The slice of the RealizedRateOracle this market depends on.
-interface IRealizedRateOracle {
-    function consult(address tokenIn, address tokenOut, uint32 window) external view returns (uint256 twap1e18);
-    function hasData(address tokenIn, address tokenOut) external view returns (bool);
-}
+import {IRealizedRateOracle} from "../interfaces/IRealizedRateOracle.sol";
+import {
+    BadParam,
+    NotTrading,
+    TradingClosed,
+    TooEarly,
+    NotAttestor,
+    WrongSourceKind,
+    DisputesDisabled,
+    WindowClosed,
+    WindowOpen,
+    BadStatus,
+    NoOracleData,
+    AlreadyClaimed,
+    NothingToClaim,
+    NotInvalid
+} from "../errors/PredictionMarketErrors.sol";
 
 /// @title Pesarc Prediction & Hedge Market
 /// @notice Binary, **parimutuel** markets settled in a local-currency stablecoin
@@ -124,23 +136,6 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
     event FeeConfigured(address treasury, uint16 protocolFeeBps);
     event OracleSet(address oracle);
 
-    // ---------------------------------------------------------------- errors
-
-    error BadParam();
-    error NotTrading();
-    error TradingClosed();
-    error TooEarly();
-    error NotAttestor();
-    error WrongSourceKind();
-    error DisputesDisabled();
-    error WindowClosed();
-    error WindowOpen();
-    error BadStatus();
-    error NoOracleData();
-    error AlreadyClaimed();
-    error NothingToClaim();
-    error NotInvalid();
-
     // ----------------------------------------------------------- constructor
 
     constructor(address _owner, address _oracle, address _treasury, uint16 _protocolFeeBps) Ownable(_owner) {
@@ -179,15 +174,25 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         Source calldata source
     ) external onlyOwner returns (uint256 id) {
         if (collateral == address(0)) revert BadParam();
-        if (closeTime <= block.timestamp || resolveTime < closeTime) revert BadParam();
-        if (uint8(source.comparator) > uint8(Comparator.LessThan)) revert BadParam();
+        if (closeTime <= block.timestamp || resolveTime < closeTime) {
+            revert BadParam();
+        }
+        if (uint8(source.comparator) > uint8(Comparator.LessThan)) {
+            revert BadParam();
+        }
 
         if (source.kind == SourceKind.Oracle) {
-            if (source.tokenIn == address(0) || source.tokenOut == address(0)) revert BadParam();
-            if (source.twapWindow == 0 || source.threshold == 0) revert BadParam();
+            if (source.tokenIn == address(0) || source.tokenOut == address(0)) {
+                revert BadParam();
+            }
+            if (source.twapWindow == 0 || source.threshold == 0) {
+                revert BadParam();
+            }
         } else {
             // Attested: a bonded attestor is the whole trust model.
-            if (attestor == address(0) || bond == 0 || disputeWindow == 0) revert BadParam();
+            if (attestor == address(0) || bond == 0 || disputeWindow == 0) {
+                revert BadParam();
+            }
         }
 
         id = marketCount++;
@@ -239,7 +244,9 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
         if (m.status != Status.Trading) revert NotTrading();
         if (m.source.kind != SourceKind.Oracle) revert WrongSourceKind();
         if (block.timestamp < m.resolveTime) revert TooEarly();
-        if (!oracle.hasData(m.source.tokenIn, m.source.tokenOut)) revert NoOracleData();
+        if (!oracle.hasData(m.source.tokenIn, m.source.tokenOut)) {
+            revert NoOracleData();
+        }
 
         uint256 rate = oracle.consult(m.source.tokenIn, m.source.tokenOut, m.source.twapWindow);
         Outcome o = _compare(rate, m.source.threshold, m.source.comparator);
@@ -323,7 +330,9 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
             // Oracle: only the disputer's bond in escrow.
             if (proposerRight) {
                 // Oracle upheld — disputer forfeits to the treasury.
-                if (treasury != address(0)) IERC20(collateral).safeTransfer(treasury, bond);
+                if (treasury != address(0)) {
+                    IERC20(collateral).safeTransfer(treasury, bond);
+                }
             } else {
                 // Oracle overturned — disputer refunded.
                 IERC20(collateral).safeTransfer(disputer, bond);
@@ -337,7 +346,9 @@ contract PredictionMarket is Ownable2Step, ReentrancyGuard {
     function claim(uint256 id) external nonReentrant {
         Market storage m = _markets[id];
         if (m.status != Status.Finalized) revert BadStatus();
-        if (m.outcome != Outcome.Yes && m.outcome != Outcome.No) revert NotInvalid();
+        if (m.outcome != Outcome.Yes && m.outcome != Outcome.No) {
+            revert NotInvalid();
+        }
         if (claimed[id][msg.sender]) revert AlreadyClaimed();
 
         uint256 s = m.outcome == Outcome.Yes ? stakeYes[id][msg.sender] : stakeNo[id][msg.sender];
