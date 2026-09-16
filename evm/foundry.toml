@@ -19,3 +19,6 @@ celo = "https://forno.celo.org"
 celo_sepolia = "${NEXT_PUBLIC_CELO_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"
 arbitrum_sepolia = "${NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL}"
+# Circle Arc — USDC is the native gas token (docs.arc.io).
+arc = "https://rpc.mainnet.arc.io"
+arc_testnet = "https://rpc.testnet.arc.io"
