@@ -1,5 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {
+    BadConfig,
+    OnlyHook,
+    OnlyReactiveCallbackProxy,
+    OnlyAuthorized,
+    ClaimPending,
+    CooldownNotPassed,
+    ClaimsPaused,
+    NotEligible,
+    ZeroPayout,
+    ClaimsViewAlreadySet,
+    ClaimsViewNotSet,
+    NoPendingClaimsView,
+    ClaimsViewNotReady
+} from "../errors/SafetyModuleErrors.sol";
 
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -21,20 +36,6 @@ interface IGoldgardClaimsView {
 ///         pays LP claims after cooldown and eligibility checks succeed.
 contract SafetyModule is ERC4626, Ownable2Step {
     using SafeERC20 for IERC20;
-
-    error BadConfig();
-    error OnlyHook();
-    error OnlyReactiveCallbackProxy();
-    error OnlyAuthorized();
-    error ClaimPending();
-    error CooldownNotPassed();
-    error ClaimsPaused();
-    error NotEligible();
-    error ZeroPayout();
-    error ClaimsViewAlreadySet();
-    error ClaimsViewNotSet();
-    error NoPendingClaimsView();
-    error ClaimsViewNotReady();
 
     uint64 public constant DEFAULT_COOLDOWN_SECONDS = 14 days;
     uint64 public constant MAX_COOLDOWN_SECONDS = 365 days;

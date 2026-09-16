@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {BadConfig, OnlyHook, InsufficientLiquidity, OracleDeviationTooHigh} from "../errors/HedgeReserveErrors.sol";
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
@@ -23,11 +24,6 @@ contract HedgeReserve is Ownable2Step {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
-
-    error BadConfig();
-    error OnlyHook();
-    error InsufficientLiquidity();
-    error OracleDeviationTooHigh(uint256 deviationBps);
 
     event ReserveBalanceChanged(uint256 newBalance, int256 delta, address indexed triggeredBy);
     event ReserveBalanceChangedDetailed(

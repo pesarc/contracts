@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {OnlyHook} from "../errors/RewardDistributorErrors.sol";
 
 import {ERC6909} from "v4-core/ERC6909.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -9,8 +10,6 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 /// @notice Minimal ERC-6909 reward minter used by the hook to issue protocol
 ///         reward units without giving arbitrary accounts mint access.
 contract RewardDistributor is ERC6909, Ownable2Step {
-    error OnlyHook();
-
     uint256 public constant GGARD_ID = 1;
 
     address public hook;

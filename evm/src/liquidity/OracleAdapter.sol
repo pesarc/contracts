@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {OnlyHook, BadConfig, OracleUnavailable} from "../errors/OracleAdapterErrors.sol";
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
@@ -20,10 +21,6 @@ import {IChainlinkAggregatorV3} from "./interfaces/IChainlinkAggregatorV3.sol";
 contract OracleAdapter is Ownable2Step {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
-
-    error OnlyHook();
-    error BadConfig();
-    error OracleUnavailable();
 
     event OraclePriceUpdated(uint256 twap, uint256 external_, uint256 deviationBps, uint256 timestamp);
 

@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {
+    CircuitBreakerActive,
+    OracleUnavailable,
+    OracleDeviationTooHigh,
+    InvalidFee,
+    OnlyReactiveCallbackProxy,
+    OnlyAuthorized,
+    BadConfig
+} from "../errors/GoldgardHookErrors.sol";
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
@@ -44,14 +53,6 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
     using SafeCast for uint256;
     using SafeCast for int256;
     using StateLibrary for IPoolManager;
-
-    error CircuitBreakerActive();
-    error OracleUnavailable();
-    error OracleDeviationTooHigh(uint256 deviationBps);
-    error InvalidFee(uint24 fee);
-    error OnlyReactiveCallbackProxy();
-    error OnlyAuthorized();
-    error BadConfig();
 
     event CircuitBreakerTripped(PoolId indexed poolId, uint64 until, uint256 deviationBps);
     event PremiumTaken(PoolId indexed poolId, Currency feeCurrency, uint256 feeAmount, uint256 usdcDeposited);
