@@ -9,9 +9,13 @@ optimizer_runs = 200
 remappings = [
   "forge-std/=lib/forge-std/src/",
   "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+  "@openzeppelin/=lib/openzeppelin-contracts/",
+  "v4-core/=lib/v4-core/src/",
+  "solmate/=lib/solmate/",
 ]
 
 [rpc_endpoints]
 celo = "https://forno.celo.org"
 celo_sepolia = "${NEXT_PUBLIC_CELO_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"
+arbitrum_sepolia = "${NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL}"

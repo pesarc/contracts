@@ -9,7 +9,8 @@ evm/src/  Foundry, organised by domain:
   prediction-market/  PredictionMarket.sol
   settlement/         IntentMatcher.sol (local-currency P2P settlement)
   liquidity/          Uniswap-v4 hub: GoldgardHook, HedgeReserve,
-                      SafetyModule, RewardDistributor (incoming)
+                      SafetyModule, RewardDistributor, OracleAdapter
+                      (+ libraries/, interfaces/)
   agent/              AgentSessionKeys.sol (bounded agent authority)
   oracle/             RealizedRateOracle.sol (self-referential price feed)
   interfaces/         shared interfaces (IRealizedRateOracle)
