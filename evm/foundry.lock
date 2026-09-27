@@ -1,0 +1,8 @@
+{
+  "lib/account-abstraction": {
+    "tag": {
+      "name": "v0.7.0",
+      "rev": "7af70c8993a6f42973f520ae0752386a5032abe7"
+    }
+  }
+}
