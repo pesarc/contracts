@@ -31,7 +31,6 @@ import {ModifyLiquidityParams, SwapParams} from "v4-core/types/PoolOperation.sol
 import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
 import {LPFeeLibrary} from "v4-core/libraries/LPFeeLibrary.sol";
-import {FullMath} from "v4-core/libraries/FullMath.sol";
 
 import {BaseHook} from "./libraries/BaseHook.sol";
 import {Transient} from "./libraries/Transient.sol";
@@ -39,12 +38,15 @@ import {OracleAdapter} from "./OracleAdapter.sol";
 import {SafetyModule} from "./SafetyModule.sol";
 import {HedgeReserve} from "./HedgeReserve.sol";
 import {RewardDistributor} from "./RewardDistributor.sol";
+import {GoldgardMath} from "./GoldgardMath.sol";
+import {PoolConfig, PositionInfo} from "./GoldgardHookTypes.sol";
+import {IGoldgardHookEvents} from "./IGoldgardHookEvents.sol";
 
 /// @title Goldgard Hook
 /// @notice Main Uniswap v4 hook for Goldgard. It defends swaps with oracle-aware
 ///         fees and a circuit breaker, routes insurance premiums into the safety
 ///         module, tracks LP eligibility for claims, and coordinates reserve rebalancing.
-contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
+contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback, IGoldgardHookEvents {
     using Hooks for IHooks;
     using PoolIdLibrary for PoolKey;
     using BalanceDeltaLibrary for BalanceDelta;
@@ -54,27 +56,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
     using SafeCast for int256;
     using StateLibrary for IPoolManager;
 
-    event CircuitBreakerTripped(PoolId indexed poolId, uint64 until, uint256 deviationBps);
-    event PremiumTaken(PoolId indexed poolId, Currency feeCurrency, uint256 feeAmount, uint256 usdcDeposited);
-    event Rebalanced(PoolId indexed poolId, int256 poolDelta0, int256 poolDelta1, uint256 amountMoved);
-    event RebalanceExecuted(PoolId indexed poolId, bool zeroForOne, uint256 amountIn, uint256 amountOut);
-    event LiquidityEnrolled(
-        PoolId indexed poolId, bytes32 indexed positionKey, address indexed owner, uint128 liquidity
-    );
-    event OraclePriceUpdated(uint256 twap, uint256 external_, uint256 deviationBps, uint256 timestamp);
-    event PremiumDiverted(
-        PoolId indexed poolId,
-        address indexed payer,
-        Currency feeCurrency,
-        uint256 feeAmount,
-        uint256 usdcDeposited,
-        uint16 premiumBps
-    );
-    event AlertLevelRaised(uint8 level, uint64 until);
-    event RebalanceThresholdTightened(uint256 newThreshold);
-    event PremiumRateAdjusted(uint16 newPremiumBps);
-    event ReactiveCallbackProxySet(address indexed proxy);
-    event AuthorizedCallerSet(address indexed caller);
+    // Events are declared in IGoldgardHookEvents (inherited above).
 
     uint256 public constant BPS = 10_000;
     uint256 public constant PREMIUM_BPS = 2;
@@ -86,30 +68,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
     bytes32 internal constant TS_REBALANCE_AMOUNT_IN = keccak256("GGARD/rebalance/amountIn");
     bytes32 internal constant TS_REBALANCE_AMOUNT_OUT = keccak256("GGARD/rebalance/amountOut");
 
-    /// @notice Per-pool fee, breaker, and rebalance policy.
-    struct PoolConfig {
-        uint24 baseLpFee;
-        uint24 maxLpFee;
-        uint16 feeSlopeBps;
-        uint16 deviationBps;
-        uint16 circuitBreakerBps;
-        uint16 rebalanceBps;
-        uint32 twapWindowSeconds;
-        uint32 circuitBreakerCooldownSeconds;
-        uint64 pausedUntil;
-    }
-
-    /// @notice Per-position state used for enrollment, eligibility, and claim previews.
-    struct PositionInfo {
-        uint128 liquidity;
-        uint64 lastTimestamp;
-        uint256 totalLiquiditySeconds;
-        uint256 inRangeLiquiditySeconds;
-        uint256 principalToken1;
-        uint160 enrolledSqrtPriceX96;
-        int24 tickLower;
-        int24 tickUpper;
-    }
+    // PoolConfig + PositionInfo structs are defined in GoldgardHookTypes.sol.
 
     OracleAdapter public immutable oracle;
     SafetyModule public immutable safetyModule;
@@ -261,11 +220,14 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
             _loadOracleSqrtPricesAndEmit(key, poolId, cfg.twapWindowSeconds);
         if (oracleSqrtPriceX96 == 0) revert OracleUnavailable();
 
-        uint256 deviationBps = _deviationBps(spotSqrtPriceX96, oracleSqrtPriceX96);
+        uint256 deviationBps = GoldgardMath.deviationBps(spotSqrtPriceX96, oracleSqrtPriceX96);
         _enforceCircuitBreaker(cfg, poolId, deviationBps);
 
-        uint256 feeDeviationBps = _applyReactiveAlertBump(cfg, deviationBps);
-        uint24 dynFee = _computeDynamicFee(cfg, feeDeviationBps);
+        uint256 feeDeviationBps =
+            GoldgardMath.applyReactiveAlertBump(reactiveAlert, cfg.deviationBps, deviationBps, uint64(block.timestamp));
+        uint24 dynFee = GoldgardMath.computeDynamicFee(
+            cfg.baseLpFee, cfg.maxLpFee, cfg.feeSlopeBps, cfg.deviationBps, feeDeviationBps
+        );
 
         uint24 overrideFee = dynFee | LPFeeLibrary.OVERRIDE_FEE_FLAG;
         return (GoldgardHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, overrideFee);
@@ -283,9 +245,9 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         oracleSqrtPriceX96 = ok ? clSqrtPriceX96 : twapSqrtPriceX96;
 
         if (ok && twapOk) {
-            uint256 twap = _price1e18FromSqrt(twapSqrtPriceX96);
-            uint256 external_ = _price1e18FromSqrt(clSqrtPriceX96);
-            uint256 oracleDeviationBps = _deviationBps256(twap, external_);
+            uint256 twap = GoldgardMath.price1e18FromSqrt(twapSqrtPriceX96);
+            uint256 external_ = GoldgardMath.price1e18FromSqrt(clSqrtPriceX96);
+            uint256 oracleDeviationBps = GoldgardMath.deviationBps256(twap, external_);
             emit OraclePriceUpdated(twap, external_, oracleDeviationBps, block.timestamp);
         }
     }
@@ -297,30 +259,6 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         cfg.pausedUntil = until;
         emit CircuitBreakerTripped(poolId, until, deviationBps);
         revert OracleDeviationTooHigh(deviationBps);
-    }
-
-    /// @dev Raises the effective deviation floor while a Reactive alert is still active.
-    function _applyReactiveAlertBump(PoolConfig storage cfg, uint256 deviationBps) internal view returns (uint256) {
-        uint8 alertLevel = uint8(reactiveAlert);
-        if (alertLevel == 0) return deviationBps;
-
-        uint64 alertUntil = uint64(reactiveAlert >> 8);
-        if (uint64(block.timestamp) >= alertUntil) return deviationBps;
-
-        uint256 bump = alertLevel >= 2 ? 500 : 300;
-        uint256 bumped = uint256(cfg.deviationBps) + bump;
-        return deviationBps > bumped ? deviationBps : bumped;
-    }
-
-    /// @dev Converts deviation into an LP fee, capped by the configured max fee.
-    function _computeDynamicFee(PoolConfig storage cfg, uint256 deviationBps) internal view returns (uint24 dynFee) {
-        dynFee = cfg.baseLpFee;
-        if (deviationBps <= cfg.deviationBps) return dynFee;
-
-        uint256 extra = (deviationBps - cfg.deviationBps) * uint256(cfg.feeSlopeBps);
-        uint256 candidate = uint256(cfg.baseLpFee) + extra;
-        if (candidate > cfg.maxLpFee) candidate = cfg.maxLpFee;
-        return OZSafeCast.toUint24(candidate);
     }
 
     /// @notice Pulls the swap-funded premium after execution and updates reserve/reward state.
@@ -345,7 +283,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         PoolId poolId = key.toId();
         PoolConfig memory cfg = poolConfig[poolId];
 
-        (Currency feeCurrency, uint256 premium) = _computePremium(key, params, delta);
+        (Currency feeCurrency, uint256 premium) = GoldgardMath.computePremium(key, params, delta, premiumBps);
         if (premium == 0) return (GoldgardHook.afterSwap.selector, 0);
 
         manager.take(feeCurrency, address(this), premium);
@@ -358,21 +296,6 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         emit PremiumDiverted(poolId, sender, feeCurrency, premium, usdcDeposited, premiumBps);
         emit PremiumTaken(poolId, feeCurrency, premium, usdcDeposited);
         return (GoldgardHook.afterSwap.selector, premium.toInt128());
-    }
-
-    /// @dev Computes the premium on the swap leg chosen by Uniswap's balance delta semantics.
-    function _computePremium(PoolKey calldata key, SwapParams calldata params, BalanceDelta delta)
-        internal
-        view
-        returns (Currency feeCurrency, uint256 premium)
-    {
-        bool specifiedTokenIs0 = (params.amountSpecified < 0 == params.zeroForOne);
-        int128 swapAmount = specifiedTokenIs0 ? delta.amount1() : delta.amount0();
-        if (swapAmount < 0) swapAmount = -swapAmount;
-        feeCurrency = specifiedTokenIs0 ? key.currency1 : key.currency0;
-
-        uint256 swapAmountAbs = OZSafeCast.toUint256(int256(swapAmount));
-        premium = (swapAmountAbs * uint256(premiumBps)) / BPS;
     }
 
     /// @dev Converts non-reserve premiums into token1, then deposits them into the safety module.
@@ -432,9 +355,9 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         BalanceDelta delta,
         bytes calldata hookData
     ) internal returns (bytes4, BalanceDelta) {
-        address owner = _resolveOwner(sender, hookData);
+        address owner = GoldgardMath.resolveOwner(sender, hookData);
         PoolId poolId = key.toId();
-        bytes32 positionKey = _positionKey(poolId, owner, params);
+        bytes32 positionKey = GoldgardMath.positionKey(poolId, owner, params);
 
         PositionInfo storage p = positions[positionKey];
         _updatePositionAccrual(p, _currentTick(poolId));
@@ -446,14 +369,6 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         _enrollIfNeededByKey(positionKey, key, owner);
 
         return (GoldgardHook.afterAddLiquidity.selector, toBalanceDelta(0, 0));
-    }
-
-    function _positionKey(PoolId poolId, address owner, ModifyLiquidityParams calldata params)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(poolId, owner, params.tickLower, params.tickUpper, params.salt));
     }
 
     function _currentTick(PoolId poolId) internal view returns (int24 tick) {
@@ -493,7 +408,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
             return (GoldgardHook.afterRemoveLiquidity.selector, toBalanceDelta(0, 0));
         }
 
-        address owner = _resolveOwner(sender, hookData);
+        address owner = GoldgardMath.resolveOwner(sender, hookData);
         PoolId poolId = key.toId();
         bytes32 positionKey = keccak256(abi.encode(poolId, owner, params.tickLower, params.tickUpper, params.salt));
 
@@ -559,7 +474,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         if (current == 0 || p0 == 0) return 0;
         uint256 r = Math.mulDiv(current, 1e18, p0);
 
-        uint256 ilBps = _impermanentLossBps(r);
+        uint256 ilBps = GoldgardMath.impermanentLossBps(r);
         uint16 cap = coverageCapBps;
         if (ilBps > cap) ilBps = cap;
         payoutAssets = Math.mulDiv(p.principalToken1, ilBps, BPS);
@@ -653,17 +568,6 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
     }
 
     /// @dev Allows integrators to pass the logical LP owner through 20 bytes of hook data.
-    function _resolveOwner(address sender, bytes calldata hookData) internal pure returns (address) {
-        if (hookData.length == 20) {
-            address owner;
-            assembly ("memory-safe") {
-                owner := shr(96, calldataload(hookData.offset))
-            }
-            return owner;
-        }
-        return sender;
-    }
-
     function _updatePositionAccrual(PositionInfo storage p, int24 currentTick) internal {
         uint64 t = uint64(block.timestamp);
         if (p.lastTimestamp == 0) {
@@ -684,38 +588,7 @@ contract GoldgardHook is BaseHook, Ownable2Step, IUnlockCallback {
         p.lastTimestamp = t;
     }
 
-    function _deviationBps(uint160 spot, uint160 oracleSqrt) internal pure returns (uint256) {
-        uint256 a = uint256(spot);
-        uint256 b = uint256(oracleSqrt);
-        if (a == b) return 0;
-        uint256 hi = a > b ? a : b;
-        uint256 lo = a > b ? b : a;
-        return ((hi - lo) * BPS) / lo;
-    }
-
-    function _deviationBps256(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == b) return 0;
-        uint256 hi = a > b ? a : b;
-        uint256 lo = a > b ? b : a;
-        if (lo == 0) return type(uint256).max;
-        return ((hi - lo) * BPS) / lo;
-    }
-
-    function _price1e18FromSqrt(uint160 sqrtPriceX96) internal pure returns (uint256) {
-        uint256 a = uint256(sqrtPriceX96);
-        uint256 denom = uint256(1) << 192;
-        uint256 q = FullMath.mulDiv(a, a, denom);
-        uint256 r = mulmod(a, a, denom);
-        return (q * 1e18) + Math.mulDiv(r, 1e18, denom);
-    }
-
-    function _impermanentLossBps(uint256 priceRatio1e18) internal pure returns (uint256) {
-        if (priceRatio1e18 == 0) return 0;
-        uint256 sqrtR1e18 = Math.sqrt(priceRatio1e18 * 1e18);
-        uint256 factor1e18 = Math.mulDiv(2 * sqrtR1e18, 1e18, 1e18 + priceRatio1e18);
-        if (factor1e18 >= 1e18) return 0;
-        return Math.mulDiv(1e18 - factor1e18, BPS, 1e18);
-    }
+    // Pure pricing / deviation / fee math lives in the GoldgardMath library.
 
     function _anyPositionKey(PoolId poolId, address account) internal view returns (bytes32) {
         PoolKey memory key = poolKeys[poolId];
