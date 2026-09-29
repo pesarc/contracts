@@ -12,3 +12,7 @@ svm/.anchor/
 !.env.example
 node_modules/
 .DS_Store
+
+# Internal engineering standards + local Claude config — keep local, never publish
+/CLAUDE.md
+.claude/
