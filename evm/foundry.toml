@@ -20,6 +20,12 @@ celo = "https://forno.celo.org"
 celo_sepolia = "${NEXT_PUBLIC_CELO_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"
 arbitrum_sepolia = "${NEXT_PUBLIC_ARB_SEPOLIA_RPC_URL}"
+# EVM corridor chains. These are public RPC defaults so simulation works out of
+# the box; for a real broadcast pass a paid RPC to forge directly with
+# `--rpc-url <full-url>` (a flaky public RPC can drop a mid-broadcast tx).
+base = "https://mainnet.base.org"
+optimism = "https://mainnet.optimism.io"
+polygon = "https://polygon-rpc.com"
 # Circle Arc — USDC is the native gas token (docs.arc.io).
 arc = "https://rpc.mainnet.arc.io"
 arc_testnet = "https://rpc.testnet.arc.io"
