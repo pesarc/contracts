@@ -31,9 +31,8 @@ contract DeployPaymaster is Script {
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address signer = vm.envAddress("PAYMASTER_SIGNER");
-        IEntryPoint entryPoint = IEntryPoint(
-            vm.envOr("ENTRY_POINT", address(0x0000000071727De22E5E9d8BAf0edAc6f37da032))
-        );
+        IEntryPoint entryPoint =
+            IEntryPoint(vm.envOr("ENTRY_POINT", address(0x0000000071727De22E5E9d8BAf0edAc6f37da032)));
         uint256 stake = vm.envOr("PM_STAKE", uint256(1e18));
         uint256 deposit = vm.envOr("PM_DEPOSIT", uint256(1e18));
         uint32 unstakeDelay = uint32(vm.envOr("PM_UNSTAKE_DELAY", uint256(86400)));
@@ -54,10 +53,6 @@ contract DeployPaymaster is Script {
         console2.log("staked (wei):", stake);
         console2.log("deposit (wei):", paymaster.getDeposit());
         console2.log("-- .env --");
-        console2.log(
-            string.concat(
-                "NEXT_PUBLIC_INHOUSE_PAYMASTER_ADDRESS=", vm.toString(address(paymaster))
-            )
-        );
+        console2.log(string.concat("NEXT_PUBLIC_INHOUSE_PAYMASTER_ADDRESS=", vm.toString(address(paymaster))));
     }
 }

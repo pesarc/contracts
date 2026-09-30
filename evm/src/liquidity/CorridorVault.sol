@@ -152,7 +152,9 @@ contract CorridorVault is ERC4626, Ownable2Step, ReentrancyGuard {
     function totalAssets() public view override returns (uint256) {
         uint256 sum = IERC20(asset()).balanceOf(address(this)) + deployed;
         uint256 n = strategies.length;
-        for (uint256 i; i < n; ++i) sum += IStrategyAdapter(strategies[i]).totalAssets();
+        for (uint256 i; i < n; ++i) {
+            sum += IStrategyAdapter(strategies[i]).totalAssets();
+        }
         return sum;
     }
 

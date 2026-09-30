@@ -21,10 +21,8 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 contract DeployCorridorVault is Script {
     function run() external {
         address deployer = msg.sender;
-        address asset = vm.envOr(
-            "VAULT_ASSET",
-            vm.envOr("USDC_ADDRESS", address(0x3600000000000000000000000000000000000000))
-        );
+        address asset =
+            vm.envOr("VAULT_ASSET", vm.envOr("USDC_ADDRESS", address(0x3600000000000000000000000000000000000000)));
         string memory name_ = vm.envOr("VAULT_NAME", string("Pesarc Corridor USDC"));
         string memory symbol_ = vm.envOr("VAULT_SYMBOL", string("pcUSDC"));
         address operator = vm.envOr("VAULT_OPERATOR", deployer);
