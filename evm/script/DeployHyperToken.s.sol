@@ -21,6 +21,10 @@ import {HyperFungibleToken} from "@hyperbridge/core/apps/HyperFungibleToken.sol"
 import {StateMachine} from "@hyperbridge/core/libraries/StateMachine.sol";
 import {TestStable} from "../src/tokens/TestStable.sol";
 
+interface IERC20Approve {
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
 contract DeployHyperToken is Script {
     address constant HOST = 0x9AA003594d59C62EE17A73A569Fd7B1DbdBd71E1;
     address constant DISPATCHER = 0x2B332088275Bc9E3C26D81B2975de2483320C181;
@@ -59,6 +63,35 @@ contract DeployHyperToken is Script {
         hft.addChain(StateMachine.evm(BASE_SEPOLIA), abi.encodePacked(wrapped));
         vm.stopBroadcast();
         console.log("HFT", address(hft));
+    }
+
+    /// Proof (run on Base Sepolia): approve the wrapped to pull the underlying,
+    /// quote the native fee, and send `amount` tcNGN to the deployer on Arb Sepolia.
+    /// Verifies the real send mechanics before the in-app path calls the same thing.
+    function sendProof() external {
+        uint256 pk = vm.envUint("PRIVATE_KEY");
+        address me = vm.addr(pk);
+        address wrapped = vm.envAddress("WRAPPED_ADDR");
+        address underlying = vm.envAddress("UNDERLYING_ADDR");
+        uint256 amount = 1_000e18;
+
+        HyperFungibleToken.SendParams memory params = HyperFungibleToken.SendParams({
+            dest: StateMachine.evm(ARB_SEPOLIA),
+            to: abi.encodePacked(me),
+            amount: amount,
+            timeout: 3600,
+            relayerFee: 0,
+            data: ""
+        });
+
+        vm.startBroadcast(pk);
+        IERC20Approve(underlying).approve(wrapped, amount);
+        // Testnet host has no router to price native, so pay via the fee token:
+        // msg.value = 0 routes to dispatchWithFeeToken. With relayerFee = 0 this
+        // only works if the protocol per-byte fee is also 0 on this testnet.
+        WrappedHyperFungibleToken(payable(wrapped)).send{value: 0}(params);
+        vm.stopBroadcast();
+        console.log("SENT amount(1e18)", amount);
     }
 
     /// Step 3 on Base Sepolia: peer the home wrapped back to the remote HFT.
