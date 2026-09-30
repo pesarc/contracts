@@ -13,6 +13,8 @@ remappings = [
   "@account-abstraction/=lib/account-abstraction/",
   "v4-core/=lib/v4-core/src/",
   "solmate/=lib/solmate/",
+  "@hyperbridge/core/=node_modules/@hyperbridge/core/contracts/",
+  "@polytope-labs/=node_modules/@polytope-labs/",
 ]
 
 [rpc_endpoints]
