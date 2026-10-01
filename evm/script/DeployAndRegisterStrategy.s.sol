@@ -5,6 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {CorridorVault} from "../src/liquidity/CorridorVault.sol";
 import {ReserveStrategy} from "../src/liquidity/ReserveStrategy.sol";
 import {AaveV3Adapter} from "../src/liquidity/AaveV3Adapter.sol";
+import {ERC4626Strategy} from "../src/liquidity/ERC4626Strategy.sol";
 
 interface IAToken {
     function UNDERLYING_ASSET_ADDRESS() external view returns (address);
@@ -81,16 +82,30 @@ contract DeployAndRegisterStrategy is Script {
             }
         }
 
+        // An ERC-4626 venue (VAULT_ERC4626) takes top priority — this is how the
+        // Goldgard hook's SafetyModule (gSAFE), Morpho, or any 4626 market plugs
+        // in. Its asset must match the vault's (the adapter constructor enforces).
+        address erc4626 = vm.envOr("VAULT_ERC4626", address(0));
+
         vm.startBroadcast();
-        address adapter = useAave
-            ? address(new AaveV3Adapter(asset, pool, aToken, vaultAddr))
-            : address(new ReserveStrategy(asset, vaultAddr));
+        address adapter;
+        string memory kind;
+        if (erc4626 != address(0)) {
+            adapter = address(new ERC4626Strategy(asset, erc4626, vaultAddr));
+            kind = "ERC4626Strategy";
+        } else if (useAave) {
+            adapter = address(new AaveV3Adapter(asset, pool, aToken, vaultAddr));
+            kind = "AaveV3Adapter";
+        } else {
+            adapter = address(new ReserveStrategy(asset, vaultAddr));
+            kind = "ReserveStrategy";
+        }
         vault.addStrategy(adapter);
         vm.stopBroadcast();
 
         console2.log("Strategy adapter", adapter);
         console2.log("  asset         ", asset);
         console2.log("  registered on ", vaultAddr);
-        console2.log("  kind          ", useAave ? "AaveV3Adapter" : "ReserveStrategy");
+        console2.log("  kind          ", kind);
     }
 }
