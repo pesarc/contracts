@@ -46,10 +46,8 @@ contract DeployArc is Script {
         address solver = vm.envOr("SOLVER_ADDRESS", deployer);
         // Prefer USDC_ADDRESS; fall back to the deprecated ARC_USDC; then the
         // Arc native-USDC predeploy (correct only on Arc — override elsewhere).
-        address usdc = vm.envOr(
-            "USDC_ADDRESS",
-            vm.envOr("ARC_USDC", address(0x3600000000000000000000000000000000000000))
-        );
+        address usdc =
+            vm.envOr("USDC_ADDRESS", vm.envOr("ARC_USDC", address(0x3600000000000000000000000000000000000000)));
         string memory prefix = vm.envOr("ENV_PREFIX", string("ARC"));
 
         // Corridor seed rates (local per USD, x1000). Defaults are sane mids.
@@ -150,9 +148,7 @@ contract DeployArc is Script {
 
     /// @dev Seed the USDC<->local rate both ways. `ratePerUsdMilli` is local
     ///      units per 1 USD, x1000 (NGN 1600 -> 1600000), mirroring DeployCorridor.
-    function _seedPair(RealizedRateOracle oracle, address usdc, address local, uint256 ratePerUsdMilli)
-        internal
-    {
+    function _seedPair(RealizedRateOracle oracle, address usdc, address local, uint256 ratePerUsdMilli) internal {
         require(ratePerUsdMilli > 0, "rate required");
         uint256 usdToLocal1e18 = (ratePerUsdMilli * 1e18) / 1000;
         uint256 localToUsd1e18 = (uint256(1000) * 1e18) / ratePerUsdMilli;
