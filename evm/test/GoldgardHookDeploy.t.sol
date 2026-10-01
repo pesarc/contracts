@@ -60,8 +60,7 @@ contract GoldgardHookDeployTest is Test {
         bytes memory initCode = abi.encodePacked(
             type(GoldgardHook).creationCode, abi.encode(owner, manager, oracle, safety, hedge, rewards)
         );
-        (bytes32 salt, address predicted) =
-            HookMiner.findSalt(address(this), keccak256(initCode), HOOK_FLAGS, 200_000);
+        (bytes32 salt, address predicted) = HookMiner.findSalt(address(this), keccak256(initCode), HOOK_FLAGS, 200_000);
         hook = new GoldgardHook{salt: salt}(owner, manager, oracle, safety, hedge, rewards);
         assertEq(address(hook), predicted, "mined address mismatch");
 

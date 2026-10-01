@@ -26,13 +26,7 @@ contract MockAggregatorV3 {
     function latestRoundData()
         external
         view
-        returns (
-            uint80 roundId,
-            int256 _answer,
-            uint256 startedAt,
-            uint256 _updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 _answer, uint256 startedAt, uint256 _updatedAt, uint80 answeredInRound)
     {
         return (0, answer, updatedAt, updatedAt, 0);
     }
